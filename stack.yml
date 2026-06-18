@@ -10,9 +10,9 @@
 
 state_path: ./state.json
 
-# notifications:
-#   slack:
-#     webhook_url: "${STACKWATCH_SLACK_WEBHOOK}"
+notifications:
+  slack:
+    webhook_url: "${STACKWATCH_SLACK_WEBHOOK}"
 
 filters:
   max_age_days: 30   # only report CVEs published in the last 30 days.
@@ -78,6 +78,122 @@ packages:
     ecosystem: RubyGems
     tier: standard
 
+  # --- Detected in el-ciclo (Rails 8) + cavall2 (Rails 7): auth & sessions ---
+  - name: bcrypt
+    ecosystem: RubyGems
+    tier: critical
+  - name: devise-two-factor
+    ecosystem: RubyGems
+    tier: critical
+  - name: devise_token_auth
+    ecosystem: RubyGems
+    tier: critical
+  - name: devise_invitable
+    ecosystem: RubyGems
+    tier: standard
+  - name: doorkeeper-jwt
+    ecosystem: RubyGems
+    tier: critical
+  - name: oauth2
+    ecosystem: RubyGems
+    tier: critical
+  - name: json-jwt
+    ecosystem: RubyGems
+    tier: critical
+  - name: omniauth-oauth2
+    ecosystem: RubyGems
+    tier: critical
+
+  # --- Rack middleware / web hardening ---
+  - name: rack-attack
+    ecosystem: RubyGems
+    tier: critical
+  - name: rack-cors
+    ecosystem: RubyGems
+    tier: critical
+  - name: rack-protection
+    ecosystem: RubyGems
+    tier: standard
+
+  # --- HTML/XML sanitization (XSS surface) ---
+  - name: loofah
+    ecosystem: RubyGems
+    tier: critical
+  - name: rails-html-sanitizer
+    ecosystem: RubyGems
+    tier: critical
+  - name: sanitize
+    ecosystem: RubyGems
+    tier: standard
+
+  # --- File uploads / archives / PDF (RCE & path-traversal surface) ---
+  - name: kt-paperclip
+    ecosystem: RubyGems
+    tier: critical
+  - name: mimemagic
+    ecosystem: RubyGems
+    tier: standard
+  - name: rubyzip
+    ecosystem: RubyGems
+    tier: critical
+  - name: pdfkit
+    ecosystem: RubyGems
+    tier: critical
+  - name: wkhtmltopdf-binary
+    ecosystem: RubyGems
+    tier: standard
+  - name: prawn
+    ecosystem: RubyGems
+    tier: standard
+  - name: pdf-reader
+    ecosystem: RubyGems
+    tier: standard
+  - name: clamby
+    ecosystem: RubyGems
+    tier: standard
+
+  # --- Datastore adapters / background jobs / search ---
+  - name: pg
+    ecosystem: RubyGems
+    tier: standard
+  - name: shoryuken
+    ecosystem: RubyGems
+    tier: standard
+  - name: solid_queue
+    ecosystem: RubyGems
+    tier: standard
+  - name: searchkick
+    ecosystem: RubyGems
+    tier: standard
+
+  # --- HTTP / SOAP clients & mail ---
+  - name: faraday
+    ecosystem: RubyGems
+    tier: standard
+  - name: httparty
+    ecosystem: RubyGems
+    tier: standard
+  - name: rest-client
+    ecosystem: RubyGems
+    tier: standard
+  - name: savon
+    ecosystem: RubyGems
+    tier: standard
+  - name: mail
+    ecosystem: RubyGems
+    tier: standard
+
+  # --- Misc app gems in active use ---
+  - name: ruby-openai
+    ecosystem: RubyGems
+    tier: standard
+  - name: recaptcha
+    ecosystem: RubyGems
+    tier: standard
+  - name: acts_as_trackable   # the "acts_trackable" gem used by el-ciclo & cavall2
+    ecosystem: RubyGems
+    tier: standard
+
   # --- MRI Ruby (distro) ---
   - name: ruby
     ecosystem: Debian
@@ -124,6 +240,51 @@ packages:
     ecosystem: npm
     tier: standard
   - name: "@aws-sdk/client-s3"
+    ecosystem: npm
+    tier: standard
+
+  # --- Detected in mfe-monorepo + zenats-react (React/Vite frontends) ---
+  # NOTE: axios (above) is already pinned in both repos due to the 1.14.1/0.30.4 supply-chain compromise.
+  - name: react-router-dom
+    ecosystem: npm
+    tier: critical
+  - name: dompurify        # XSS sanitizer — high-value to watch
+    ecosystem: npm
+    tier: critical
+  - name: qs               # prototype-pollution history
+    ecosystem: npm
+    tier: critical
+  - name: xlsx             # SheetJS — prototype pollution / ReDoS CVEs
+    ecosystem: npm
+    tier: critical
+  - name: jwt-decode
+    ecosystem: npm
+    tier: standard
+  - name: jspdf
+    ecosystem: npm
+    tier: standard
+  - name: html2canvas
+    ecosystem: npm
+    tier: standard
+  - name: postcss          # ReDoS history
+    ecosystem: npm
+    tier: standard
+  - name: validator
+    ecosystem: npm
+    tier: standard
+  - name: i18next
+    ecosystem: npm
+    tier: standard
+  - name: tailwindcss
+    ecosystem: npm
+    tier: standard
+  - name: date-fns
+    ecosystem: npm
+    tier: standard
+  - name: "@reduxjs/toolkit"
+    ecosystem: npm
+    tier: standard
+  - name: "@rails/actioncable"
     ecosystem: npm
     tier: standard
 
