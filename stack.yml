@@ -1,0 +1,305 @@
+# Generated from your "yes" list. Skipped everything you marked "idk".
+# Adjust Debian vs Ubuntu release suffixes to match real images (e.g. Ubuntu:22.04:LTS).
+#
+# Notes:
+#   - MySQL lineage -> Debian `mariadb` (OSV has little under mysql-8.0 alone).
+#   - OpenSearch -> npm client (`@opensearch-project/opensearch`); distro `opensearch` had no OSV hits.
+#   - GitHub Actions -> ecosystem name is `GitHub Actions` (space); empty history today still OK to list.
+#   - Rust -> add more `crates.io` rows from Cargo.lock next to `tokio` / `serde`.
+#   - "Go modules you import" -> add more `Go` rows for your actual module paths.
+
+state_path: ./state.json
+
+# notifications:
+#   slack:
+#     webhook_url: "${STACKWATCH_SLACK_WEBHOOK}"
+
+filters:
+  max_age_days: 30   # only report CVEs published in the last 30 days.
+                     # Set to `false` to disable (will report full historical backlog).
+
+packages:
+  # --- Ruby / Rails app ---
+  - name: rails
+    ecosystem: RubyGems
+    tier: critical
+  - name: puma
+    ecosystem: RubyGems
+    tier: standard
+  - name: bundler
+    ecosystem: RubyGems
+    tier: standard
+  - name: rack
+    ecosystem: RubyGems
+    tier: critical
+  - name: activerecord
+    ecosystem: RubyGems
+    tier: critical
+  - name: sidekiq
+    ecosystem: RubyGems
+    tier: critical
+  - name: resque
+    ecosystem: RubyGems
+    tier: standard
+  - name: delayed_job
+    ecosystem: RubyGems
+    tier: standard
+  - name: devise
+    ecosystem: RubyGems
+    tier: critical
+  - name: doorkeeper
+    ecosystem: RubyGems
+    tier: critical
+  - name: omniauth
+    ecosystem: RubyGems
+    tier: critical
+  - name: jwt
+    ecosystem: RubyGems
+    tier: critical
+  - name: ruby-saml
+    ecosystem: RubyGems
+    tier: critical
+  - name: webauthn
+    ecosystem: RubyGems
+    tier: critical
+  - name: nokogiri
+    ecosystem: RubyGems
+    tier: critical
+  - name: elasticsearch
+    ecosystem: RubyGems
+    tier: standard
+  - name: redis
+    ecosystem: RubyGems
+    tier: critical
+  - name: aws-sdk-s3
+    ecosystem: RubyGems
+    tier: standard
+  - name: slack-ruby-client
+    ecosystem: RubyGems
+    tier: standard
+
+  # --- MRI Ruby (distro) ---
+  - name: ruby
+    ecosystem: Debian
+    tier: critical
+
+  # --- React / Node (npm) ---
+  - name: react
+    ecosystem: npm
+    tier: critical
+  - name: typescript
+    ecosystem: npm
+    tier: standard
+  - name: vite
+    ecosystem: npm
+    tier: standard
+  - name: webpack
+    ecosystem: npm
+    tier: standard
+  - name: rollup
+    ecosystem: npm
+    tier: standard
+  - name: esbuild
+    ecosystem: npm
+    tier: standard
+  - name: express
+    ecosystem: npm
+    tier: standard
+  - name: axios
+    ecosystem: npm
+    tier: standard
+  - name: lodash
+    ecosystem: npm
+    tier: standard
+  - name: jsonwebtoken
+    ecosystem: npm
+    tier: critical
+  - name: "@anthropic-ai/claude-code"
+    ecosystem: npm
+    tier: critical
+  - name: slack-incoming-webhooks
+    ecosystem: npm
+    tier: standard
+  - name: "@opensearch-project/opensearch"
+    ecosystem: npm
+    tier: standard
+  - name: "@aws-sdk/client-s3"
+    ecosystem: npm
+    tier: standard
+
+  # --- Node runtime (distro) ---
+  - name: nodejs
+    ecosystem: Debian
+    tier: critical
+
+  # --- Python tooling (PyPI) ---
+  - name: pip
+    ecosystem: PyPI
+    tier: standard
+
+  # --- Python interpreter (distro) ---
+  - name: python3.11
+    ecosystem: Debian
+    tier: critical
+
+  # --- JVM / Log4j / Spring ---
+  - name: "org.apache.logging.log4j:log4j-core"
+    ecosystem: Maven
+    tier: critical
+  - name: "org.springframework:spring-core"
+    ecosystem: Maven
+    tier: standard
+
+  # --- .NET ---
+  - name: Newtonsoft.Json
+    ecosystem: NuGet
+    tier: standard
+
+  # --- PHP ---
+  - name: laravel/framework
+    ecosystem: Packagist
+    tier: critical
+  - name: composer/composer
+    ecosystem: Packagist
+    tier: standard
+
+  # --- Rust (extend from Cargo.lock) ---
+  - name: tokio
+    ecosystem: crates.io
+    tier: standard
+  - name: serde
+    ecosystem: crates.io
+    tier: standard
+
+  # --- Kafka (Java client) ---
+  - name: "org.apache.kafka:kafka-clients"
+    ecosystem: Maven
+    tier: critical
+
+  # --- GitHub Actions (add pins you use) ---
+  - name: actions/checkout
+    ecosystem: GitHub Actions
+    tier: standard
+  - name: actions/setup-node
+    ecosystem: GitHub Actions
+    tier: standard
+  - name: actions/cache
+    ecosystem: GitHub Actions
+    tier: standard
+
+  # --- GitLab Runner (distro package) ---
+  - name: gitlab-runner
+    ecosystem: Debian
+    tier: standard
+
+  # --- Containers / orchestration (Go upstreams) ---
+  - name: "github.com/moby/moby"
+    ecosystem: Go
+    tier: critical
+  - name: "github.com/docker/compose/v2"
+    ecosystem: Go
+    tier: critical
+  - name: "github.com/lima-vm/lima"
+    ecosystem: Go
+    tier: standard
+  - name: k8s.io/kubernetes
+    ecosystem: Go
+    tier: critical
+  - name: "github.com/minio/minio"
+    ecosystem: Go
+    tier: standard
+  - name: "github.com/prometheus/prometheus"
+    ecosystem: Go
+    tier: standard
+  - name: "github.com/grafana/grafana"
+    ecosystem: Go
+    tier: standard
+
+  - name: docker.io
+    ecosystem: Debian
+    tier: critical
+  - name: containerd
+    ecosystem: Debian
+    tier: critical
+  - name: runc
+    ecosystem: Debian
+    tier: critical
+  - name: podman
+    ecosystem: Debian
+    tier: standard
+
+  # --- Datastores & messaging (Debian) ---
+  - name: postgresql
+    ecosystem: Debian
+    tier: critical
+  - name: mariadb
+    ecosystem: Debian
+    tier: critical
+  - name: sqlite3
+    ecosystem: Debian
+    tier: standard
+  - name: mongodb
+    ecosystem: Debian
+    tier: standard
+  - name: redis
+    ecosystem: Debian
+    tier: critical
+  - name: memcached
+    ecosystem: Debian
+    tier: standard
+  - name: elasticsearch
+    ecosystem: Debian
+    tier: standard
+  - name: rabbitmq-server
+    ecosystem: Debian
+    tier: critical
+
+  # --- Proxies / web ---
+  - name: nginx
+    ecosystem: Debian
+    tier: critical
+  - name: apache2
+    ecosystem: Debian
+    tier: critical
+
+  # --- Observability (Debian helpers) ---
+  - name: prometheus
+    ecosystem: Debian
+    tier: standard
+
+  # --- Media ---
+  - name: ffmpeg
+    ecosystem: Debian
+    tier: standard
+
+  # --- OS / core distro ---
+  - name: Kernel
+    ecosystem: Linux
+    tier: critical
+  - name: openssl
+    ecosystem: Debian
+    tier: critical
+  - name: openssh
+    ecosystem: Debian
+    tier: critical
+  - name: git
+    ecosystem: Debian
+    tier: standard
+  - name: curl
+    ecosystem: Debian
+    tier: standard
+  - name: wget
+    ecosystem: Debian
+    tier: standard
+  - name: gnupg
+    ecosystem: Debian
+    tier: standard
+  - name: ca-certificates
+    ecosystem: Debian
+    tier: standard
+  - name: systemd
+    ecosystem: Debian
+    tier: critical
+  - name: sudo
+    ecosystem: Debian
+    tier: critical
