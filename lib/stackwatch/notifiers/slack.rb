@@ -1,26 +1,29 @@
 module StackWatch
   module Notifiers
     class Slack
-      TIMEOUT_SEC      = 10
-      ALERT_BATCH_SIZE = 10 # max advisories per alert message, keeps posts readable
+      TIMEOUT_SEC       = 10
+      ALERT_BATCH_SIZE  = 10 # max advisories per alert message, keeps posts readable
+      MAX_ALERT_BATCHES = 5  # hard cap on alert messages per run — never flood the channel
 
       def initialize(webhook_url)
         @uri = URI(webhook_url)
       end
 
-      # Batched alerts: up to ALERT_BATCH_SIZE high-severity advisories per Slack
-      # message instead of one message per CVE. Each item is
-      # { package:, vuln:, mention: }; mention (high severity + patch available) is
-      # decided by the Runner. @here is applied once per batch if any item warrants it.
+      # Batched alerts: up to ALERT_BATCH_SIZE advisories per message, capped at
+      # MAX_ALERT_BATCHES messages per run (so at most 50 CVEs ever page the channel).
+      # Each item is { package:, vuln:, mention: }; @here is applied once per batch if
+      # any item warrants it. Overflow beyond the cap is NOT silently dropped — it's
+      # counted on the last message (and every alert is already in the run log).
       def post_alerts(items)
         return if items.empty?
 
-        items.each_slice(ALERT_BATCH_SIZE) do |batch|
-          head   = batch.any? { |i| i[:mention] } ? '<!here> ' : ''
-          intro  = "#{head}:rotating_light: StackWatch — #{batch.size} high-severity " \
-                   "advisor#{batch.size == 1 ? 'y' : 'ies'}"
-          blocks = batch.map { |i| format_alert(package: i[:package], vuln: i[:vuln]) }
-          post('text' => ([intro] + blocks).join("\n\n"))
+        batches    = items.each_slice(ALERT_BATCH_SIZE).to_a
+        suppressed = batches.drop(MAX_ALERT_BATCHES).sum(&:size)
+        capped     = batches.first(MAX_ALERT_BATCHES)
+
+        capped.each_with_index do |batch, idx|
+          note = idx == capped.size - 1 ? suppressed : 0
+          post('text' => alert_batch_text(batch, note))
         end
       end
 
@@ -46,6 +49,20 @@ module StackWatch
       end
 
       private
+
+      # Full text for one alert message. `suppressed` > 0 appends the cap notice.
+      def alert_batch_text(batch, suppressed)
+        head   = batch.any? { |i| i[:mention] } ? '<!here> ' : ''
+        intro  = "#{head}:rotating_light: StackWatch — #{batch.size} high-severity " \
+                 "advisor#{batch.size == 1 ? 'y' : 'ies'}"
+        blocks = batch.map { |i| format_alert(package: i[:package], vuln: i[:vuln]) }
+        text   = ([intro] + blocks).join("\n\n")
+        return text unless suppressed.positive?
+
+        text + "\n\n:warning: +#{suppressed} more high-severity advisor" \
+               "#{suppressed == 1 ? 'y' : 'ies'} this run, suppressed by the " \
+               "#{MAX_ALERT_BATCHES}-message cap — see the run log."
+      end
 
       # One advisory block within a batched alert message (batch carries the @here).
       def format_alert(package:, vuln:)
