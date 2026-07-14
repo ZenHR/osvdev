@@ -1,12 +1,17 @@
-# Generated from your "yes" list. Skipped everything you marked "idk".
-# Adjust Debian vs Ubuntu release suffixes to match real images (e.g. Ubuntu:22.04:LTS).
+# StackWatch config.
 #
-# Notes:
-#   - MySQL lineage -> Debian `mariadb` (OSV has little under mysql-8.0 alone).
-#   - OpenSearch -> npm client (`@opensearch-project/opensearch`); distro `opensearch` had no OSV hits.
-#   - GitHub Actions -> ecosystem name is `GitHub Actions` (space); empty history today still OK to list.
-#   - Rust -> add more `crates.io` rows from Cargo.lock next to `tokio` / `serde`.
-#   - "Go modules you import" -> add more `Go` rows for your actual module paths.
+# Scoping rules applied (see ANALYSIS below):
+#   * Only packages present in a PRODUCTION image / host are listed.
+#   * `version:` pins let osv.dev filter server-side to vulns that affect the
+#     deployed version — the single biggest noise reducer. Up-to-date pins go
+#     near-silent until a *new* affecting CVE lands.
+#   * `tier:` no longer drives @here. Routing is now severity + patch based:
+#       CVSS < drop_below_cvss        -> dropped
+#       drop_below <= CVSS < digest   -> weekly digest, no @here
+#       CVSS >= digest_below_cvss     -> channel post; @here only if a patch exists
+#     tier is kept as an informational label only.
+#
+
 
 state_path: ./state.json
 
@@ -15,452 +20,173 @@ notifications:
     webhook_url: "${STACKWATCH_SLACK_WEBHOOK}"
 
 filters:
-  max_age_days: 30   # only report CVEs published in the last 30 days.
-                     # Set to `false` to disable (will report full historical backlog).
+  max_age_days: 30       # only report vulns published in the last 30 days (false = full backlog)
+  drop_below_cvss: 4.0   # CVSS below this is dropped entirely
+  digest_below_cvss: 7.0 # 4.0..<7.0 -> weekly digest; >= 7.0 -> alert (@here if patched)
 
 packages:
-  # --- Ruby / Rails app ---
-  - name: rails
-    ecosystem: RubyGems
-    tier: critical
-  - name: puma
-    ecosystem: RubyGems
-    tier: standard
-  - name: bundler
-    ecosystem: RubyGems
-    tier: standard
-  - name: rack
-    ecosystem: RubyGems
-    tier: critical
-  - name: activerecord
-    ecosystem: RubyGems
-    tier: critical
-  - name: sidekiq
-    ecosystem: RubyGems
-    tier: critical
-  - name: resque
-    ecosystem: RubyGems
-    tier: standard
-  - name: delayed_job
-    ecosystem: RubyGems
-    tier: standard
-  - name: devise
-    ecosystem: RubyGems
-    tier: critical
-  - name: doorkeeper
-    ecosystem: RubyGems
-    tier: critical
-  - name: omniauth
-    ecosystem: RubyGems
-    tier: critical
-  - name: jwt
-    ecosystem: RubyGems
-    tier: critical
-  - name: ruby-saml
-    ecosystem: RubyGems
-    tier: critical
-  - name: webauthn
-    ecosystem: RubyGems
-    tier: critical
-  - name: nokogiri
-    ecosystem: RubyGems
-    tier: critical
-  - name: elasticsearch
-    ecosystem: RubyGems
-    tier: standard
-  - name: redis
-    ecosystem: RubyGems
-    tier: critical
-  - name: aws-sdk-s3
-    ecosystem: RubyGems
-    tier: standard
-  - name: slack-ruby-client
-    ecosystem: RubyGems
-    tier: standard
+  # --- Ruby app gems, pinned to el-ciclo (ZenHR/zenhr, Rails 8) ---
+  - { name: rails,                ecosystem: RubyGems, tier: critical, version: 8.0.5 }
+  - { name: rack,                 ecosystem: RubyGems, tier: critical, version: 3.1.21 }
+  - { name: nokogiri,             ecosystem: RubyGems, tier: critical, version: 1.19.4 }
+  - { name: devise,               ecosystem: RubyGems, tier: critical, version: 4.9.4 }
+  - { name: doorkeeper,           ecosystem: RubyGems, tier: critical, version: 5.7.1 }
+  - { name: jwt,                  ecosystem: RubyGems, tier: critical, version: 2.10.3 }
+  - { name: ruby-saml,            ecosystem: RubyGems, tier: critical, version: 1.18.1 }
+  - { name: omniauth,             ecosystem: RubyGems, tier: critical, version: 2.1.2 }
+  - { name: loofah,               ecosystem: RubyGems, tier: critical, version: 2.23.1 }
+  - { name: rails-html-sanitizer, ecosystem: RubyGems, tier: critical, version: 1.6.2 }
+  - { name: kt-paperclip,         ecosystem: RubyGems, tier: standard, version: 7.2.2 }
+  - { name: rubyzip,              ecosystem: RubyGems, tier: standard, version: 2.3.2 }
+  - { name: pdfkit,               ecosystem: RubyGems, tier: standard, version: 0.8.7.3 }
+  - { name: sidekiq,              ecosystem: RubyGems, tier: standard, version: 7.3.9 }
+  - { name: puma,                 ecosystem: RubyGems, tier: standard, version: 6.5.0 }
 
-  # --- Detected in el-ciclo (Rails 8) + cavall2 (Rails 7): auth & sessions ---
-  - name: bcrypt
-    ecosystem: RubyGems
-    tier: critical
-  - name: devise-two-factor
-    ecosystem: RubyGems
-    tier: critical
-  - name: devise_token_auth
-    ecosystem: RubyGems
-    tier: critical
-  - name: devise_invitable
-    ecosystem: RubyGems
-    tier: standard
-  - name: doorkeeper-jwt
-    ecosystem: RubyGems
-    tier: critical
-  - name: oauth2
-    ecosystem: RubyGems
-    tier: critical
-  - name: json-jwt
-    ecosystem: RubyGems
-    tier: critical
-  - name: omniauth-oauth2
-    ecosystem: RubyGems
-    tier: critical
+  # === el-ciclo full attack surface (pinned to Gemfile.lock; per-version so up-to-date
+  #     pins stay silent until a NEW affecting CVE lands). Superset added on request:
+  #     everything that handles auth, untrusted input, XML/HTML, external calls, or
+  #     admin power. Pure dev/test/asset gems (rubocop/rspec/bootstrap/jquery) omitted. ===
 
-  # --- Rack middleware / web hardening ---
-  - name: rack-attack
-    ecosystem: RubyGems
-    tier: critical
-  - name: rack-cors
-    ecosystem: RubyGems
-    tier: critical
-  - name: rack-protection
-    ecosystem: RubyGems
-    tier: standard
+  # -- Auth / crypto / SSO / authorization --
+  - { name: bcrypt,                         ecosystem: RubyGems, tier: critical, version: 3.1.22 }
+  - { name: devise-two-factor,              ecosystem: RubyGems, tier: critical, version: 6.4.0 }
+  - { name: devise_token_auth,              ecosystem: RubyGems, tier: critical, version: 1.2.5 }
+  - { name: doorkeeper-jwt,                 ecosystem: RubyGems, tier: critical, version: 0.4.1 }
+  - { name: oauth2,                         ecosystem: RubyGems, tier: critical, version: 2.0.22 }
+  - { name: omniauth-oauth2,                ecosystem: RubyGems, tier: critical, version: 1.8.0 }
+  - { name: omniauth-google-oauth2,         ecosystem: RubyGems, tier: critical, version: 1.1.2 }
+  - { name: omniauth-microsoft_graph,       ecosystem: RubyGems, tier: critical, version: 2.0.1 }
+  - { name: omniauth-apple,                 ecosystem: RubyGems, tier: critical, version: 1.3.0 }
+  - { name: omniauth-rails_csrf_protection, ecosystem: RubyGems, tier: critical, version: 1.0.2 }
+  - { name: json-jwt,                       ecosystem: RubyGems, tier: critical, version: 1.15.3.1 } # JWE/JWT crypto on SSO path
+  - { name: cancancan,                      ecosystem: RubyGems, tier: critical, version: 3.5.0 }    # authz — logic CVE = privesc
 
-  # --- HTML/XML sanitization (XSS surface) ---
-  - name: loofah
-    ecosystem: RubyGems
-    tier: critical
-  - name: rails-html-sanitizer
-    ecosystem: RubyGems
-    tier: critical
-  - name: sanitize
-    ecosystem: RubyGems
-    tier: standard
+  # -- XML / HTML / rich-text / templating (XXE / XSS / SSTI) --
+  - { name: rexml,             ecosystem: RubyGems, tier: critical, version: 3.4.4 }  # XML parser behind ruby-saml; recurring ReDoS
+  - { name: sanitize,          ecosystem: RubyGems, tier: critical, version: 6.1.1 }
+  - { name: xmlrpc,            ecosystem: RubyGems, tier: critical, version: 0.3.3 }  # XML-RPC deserialization/XXE
+  - { name: haml,              ecosystem: RubyGems, tier: standard, version: 6.3.0 }
+  - { name: tinymce-rails,     ecosystem: RubyGems, tier: standard, version: 7.9.0 } # bundled rich-text editor JS (XSS)
+  - { name: rich_text_renderer, ecosystem: RubyGems, tier: standard, version: 0.3.2 }
+  - { name: contentful,        ecosystem: RubyGems, tier: standard, version: 2.17.1 } # renders external CMS content
 
-  # --- File uploads / archives / PDF (RCE & path-traversal surface) ---
-  - name: kt-paperclip
-    ecosystem: RubyGems
-    tier: critical
-  - name: mimemagic
-    ecosystem: RubyGems
-    tier: standard
-  - name: rubyzip
-    ecosystem: RubyGems
-    tier: critical
-  - name: pdfkit
-    ecosystem: RubyGems
-    tier: critical
-  - name: wkhtmltopdf-binary
-    ecosystem: RubyGems
-    tier: standard
-  - name: prawn
-    ecosystem: RubyGems
-    tier: standard
-  - name: pdf-reader
-    ecosystem: RubyGems
-    tier: standard
-  - name: clamby
-    ecosystem: RubyGems
-    tier: standard
+  # -- Untrusted-file parsing (upload / import surfaces) --
+  - { name: roo,         ecosystem: RubyGems, tier: critical, version: 2.10.1 } # xlsx import (unzip+XML) = server-side SheetJS analog
+  - { name: roo-xls,     ecosystem: RubyGems, tier: critical, version: 1.2.0 }
+  - { name: spreadsheet, ecosystem: RubyGems, tier: critical, version: 1.2.9 } # .xls parsing
+  - { name: pdf-reader,  ecosystem: RubyGems, tier: critical, version: 2.13.0 } # parses untrusted uploaded PDFs (CVs)
+  - { name: mimemagic,   ecosystem: RubyGems, tier: standard, version: 0.3.10 } # NB: old, problematic lineage
+  - { name: marcel,      ecosystem: RubyGems, tier: standard, version: 1.0.4 }
+  - { name: clamby,      ecosystem: RubyGems, tier: standard, version: 1.6.11 } # shells to clamscan on uploads
 
-  # --- Datastore adapters / background jobs / search ---
-  - name: pg
-    ecosystem: RubyGems
-    tier: standard
-  - name: shoryuken
-    ecosystem: RubyGems
-    tier: standard
-  - name: solid_queue
-    ecosystem: RubyGems
-    tier: standard
-  - name: searchkick
-    ecosystem: RubyGems
-    tier: standard
+  # -- PDF rendering (EOL binary — real risk) --
+  - { name: wkhtmltopdf-binary, ecosystem: RubyGems, tier: critical, version: 0.12.6.4 } # EOL QtWebKit — track upstream too
 
-  # --- HTTP / SOAP clients & mail ---
-  - name: faraday
-    ecosystem: RubyGems
-    tier: standard
-  - name: httparty
-    ecosystem: RubyGems
-    tier: standard
-  - name: rest-client
-    ecosystem: RubyGems
-    tier: standard
-  - name: savon
-    ecosystem: RubyGems
-    tier: standard
-  - name: mail
-    ecosystem: RubyGems
-    tier: standard
+  # -- HTTP / SOAP / mail clients (SSRF / untrusted responses) --
+  - { name: faraday,      ecosystem: RubyGems, tier: standard, version: 1.10.5 }
+  - { name: httparty,     ecosystem: RubyGems, tier: standard, version: 0.24.0 }
+  - { name: rest-client,  ecosystem: RubyGems, tier: standard, version: 2.1.0 }
+  - { name: savon,        ecosystem: RubyGems, tier: critical, version: 2.17.3 } # SOAP/XML
+  - { name: mail,         ecosystem: RubyGems, tier: standard, version: 2.8.1 }
+  - { name: net-imap,     ecosystem: RubyGems, tier: standard, version: 0.6.4.1 } # ReDoS CVE history
+  - { name: mailgun-ruby, ecosystem: RubyGems, tier: standard, version: 1.2.14 }
+  - { name: ruby-openai,  ecosystem: RubyGems, tier: standard, version: 4.1.0 }
 
-  # --- Misc app gems in active use ---
-  - name: ruby-openai
-    ecosystem: RubyGems
-    tier: standard
-  - name: recaptcha
-    ecosystem: RubyGems
-    tier: standard
-  - name: acts_as_trackable   # the "acts_trackable" gem used by el-ciclo & cavall2
-    ecosystem: RubyGems
-    tier: standard
+  # -- Serialization (deserialization surface) --
+  - { name: msgpack, ecosystem: RubyGems, tier: standard, version: 1.8.3 }
 
-  # --- MRI Ruby (distro) ---
-  - name: ruby
-    ecosystem: Debian
-    tier: critical
+  # -- Admin / powerful dashboards (broad authenticated surface) --
+  - { name: rails_admin,          ecosystem: RubyGems, tier: critical, version: 3.3.0 } # historically CVE-prone admin UI
+  - { name: flipper-ui,           ecosystem: RubyGems, tier: standard, version: 1.3.0 }
+  - { name: mission_control-jobs, ecosystem: RubyGems, tier: standard, version: 0.6.0 }
 
-  # --- React / Node (npm) ---
-  - name: react
-    ecosystem: npm
-    tier: critical
-  - name: typescript
-    ecosystem: npm
-    tier: standard
-  - name: vite
-    ecosystem: npm
-    tier: standard
-  - name: webpack
-    ecosystem: npm
-    tier: standard
-  - name: rollup
-    ecosystem: npm
-    tier: standard
-  - name: esbuild
-    ecosystem: npm
-    tier: standard
-  - name: express
-    ecosystem: npm
-    tier: standard
-  - name: axios
-    ecosystem: npm
-    tier: standard
-  - name: lodash
-    ecosystem: npm
-    tier: standard
-  - name: jsonwebtoken
-    ecosystem: npm
-    tier: critical
-  - name: "@anthropic-ai/claude-code"
-    ecosystem: npm
-    tier: critical
-  - name: slack-incoming-webhooks
-    ecosystem: npm
-    tier: standard
-  - name: "@opensearch-project/opensearch"
-    ecosystem: npm
-    tier: standard
-  - name: "@aws-sdk/client-s3"
-    ecosystem: npm
-    tier: standard
+  # -- Job runners (DB/datastore clients dropped: trusted input; OS-level pg/redis/es
+  #    already watched below. aws-sdk-core kept — SQS is the job broker) --
+  - { name: shoryuken,    ecosystem: RubyGems, tier: standard, version: 6.2.1 }
+  - { name: solid_queue,  ecosystem: RubyGems, tier: standard, version: 1.2.1 }
+  - { name: aws-sdk-core, ecosystem: RubyGems, tier: standard, version: 3.240.0 }
 
-  # --- Detected in mfe-monorepo + zenats-react (React/Vite frontends) ---
-  # NOTE: axios (above) is already pinned in both repos due to the 1.14.1/0.30.4 supply-chain compromise.
-  - name: react-router-dom
-    ecosystem: npm
-    tier: critical
-  - name: dompurify        # XSS sanitizer — high-value to watch
-    ecosystem: npm
-    tier: critical
-  - name: qs               # prototype-pollution history
-    ecosystem: npm
-    tier: critical
-  - name: xlsx             # SheetJS — prototype pollution / ReDoS CVEs
-    ecosystem: npm
-    tier: critical
-  - name: jwt-decode
-    ecosystem: npm
-    tier: standard
-  - name: jspdf
-    ecosystem: npm
-    tier: standard
-  - name: html2canvas
-    ecosystem: npm
-    tier: standard
-  - name: postcss          # ReDoS history
-    ecosystem: npm
-    tier: standard
-  - name: validator
-    ecosystem: npm
-    tier: standard
-  - name: i18next
-    ecosystem: npm
-    tier: standard
-  - name: tailwindcss
-    ecosystem: npm
-    tier: standard
-  - name: date-fns
-    ecosystem: npm
-    tier: standard
-  - name: "@reduxjs/toolkit"
-    ecosystem: npm
-    tier: standard
-  - name: "@rails/actioncable"
-    ecosystem: npm
-    tier: standard
+  # -- MCP servers (newly-exposed tool/interface surface) --
+  - { name: fast-mcp, ecosystem: RubyGems, tier: critical, version: 1.6.0 }
+  - { name: mcp,      ecosystem: RubyGems, tier: critical, version: 0.18.0 }
 
-  # --- Node runtime (distro) ---
-  - name: nodejs
-    ecosystem: Debian
-    tier: critical
+  # --- ZenATS (ZenHR/zenats + cavall2, Rails 7.1) runs OLDER majors of the same
+  #     gems; second pins so a 2.x-only CVE isn't missed by the 3.x pin above ---
+  - { name: rails,    ecosystem: RubyGems, tier: critical, version: 7.1.6 }
+  - { name: rack,     ecosystem: RubyGems, tier: critical, version: 2.2.22 }
+  - { name: nokogiri, ecosystem: RubyGems, tier: critical, version: 1.18.10 }
+  - { name: sidekiq,  ecosystem: RubyGems, tier: standard, version: 6.5.12 }
+  - { name: docsplit, ecosystem: RubyGems, tier: standard, version: 0.7.6 }
 
-  # --- Python tooling (PyPI) ---
-  - name: pip
-    ecosystem: PyPI
-    tier: standard
+  # --- Frontend npm (mfe-monorepo Nx workspace + zenats-react). Versions differ per
+  #     repo/MFE so left UNPINNED + severity-gated (per-version pinning isn't possible
+  #     across a shared workspace with divergent MFEs). Comprehensive attack surface
+  #     added on request: XSS/HTML rendering, prototype-pollution, auth/token/cookie,
+  #     i18n interpolation, PDF/canvas gen, routing, JSON-schema forms. ---
+  - { name: xlsx,       ecosystem: npm, tier: standard, version: 0.18.5 }
+  - { name: dompurify,  ecosystem: npm, tier: critical }
+  - { name: jsonwebtoken, ecosystem: npm, tier: critical }
+  - { name: jwt-decode, ecosystem: npm, tier: standard }
+  # HTTP client — 1.14.1/0.30.4 supply-chain compromise history; mfe resolves <1.14.1
+  - { name: axios, ecosystem: npm, tier: critical }
+  # XSS / HTML / rich rendering
+  - { name: html-react-parser,       ecosystem: npm, tier: critical } # renders HTML -> XSS if source untrusted
+  - { name: react-syntax-highlighter, ecosystem: npm, tier: standard } # refractor/highlight.js ReDoS
+  - { name: primereact,              ecosystem: npm, tier: standard }
+  - { name: "@mui/material",         ecosystem: npm, tier: standard }
+  # Prototype pollution / core utils
+  - { name: lodash, ecosystem: npm, tier: critical }
+  # Auth / tokens / cookies
+  - { name: js-cookie, ecosystem: npm, tier: standard } # session/token storage
+  # i18n (interpolation XSS / remote resource loading)
+  - { name: i18next,              ecosystem: npm, tier: standard }
+  - { name: i18next-http-backend, ecosystem: npm, tier: standard }
+  # PDF / canvas generation (jspdf CVE history)
+  - { name: jspdf,           ecosystem: npm, tier: standard }
+  - { name: jspdf-autotable, ecosystem: npm, tier: standard }
+  - { name: "html2pdf.js",   ecosystem: npm, tier: standard }
+  - { name: html2canvas,     ecosystem: npm, tier: standard }
+  # Framework / routing / realtime
+  - { name: react,            ecosystem: npm, tier: critical }
+  - { name: react-router-dom, ecosystem: npm, tier: critical } # routing/redirect CVEs
+  - { name: "@rails/actioncable", ecosystem: npm, tier: standard } # websocket client
+  # JSON-schema form rendering + validation (schema-driven UI from server config)
+  - { name: "@rjsf/core",           ecosystem: npm, tier: standard }
+  - { name: "@rjsf/validator-ajv8", ecosystem: npm, tier: standard }
 
-  # --- Python interpreter (distro) ---
-  - name: python3.11
-    ecosystem: Debian
-    tier: critical
+  # --- Swarm host + container runtime (real escape surface: docker.sock is mounted
+  #     into traefik/portainer/auto-deploy = host-root-equivalent). Host versions
+  #     unknown -> unpinned, severity-gated. Debian ecosystem is the closest proxy. ---
+  - { name: docker.io,  ecosystem: Debian, tier: critical }
+  - { name: containerd, ecosystem: Debian, tier: critical }
+  - { name: runc,       ecosystem: Debian, tier: critical }
+  - { name: "github.com/moby/moby",          ecosystem: Go, tier: critical }
+  - { name: "github.com/docker/compose/v2",  ecosystem: Go, tier: standard }
+  - { name: "github.com/traefik/traefik/v3", ecosystem: Go, tier: critical }
+  - { name: "github.com/minio/minio",        ecosystem: Go, tier: standard }
 
-  # --- JVM / Log4j / Spring ---
-  - name: "org.apache.logging.log4j:log4j-core"
-    ecosystem: Maven
-    tier: critical
-  - name: "org.springframework:spring-core"
-    ecosystem: Maven
-    tier: standard
+  # --- Deployed datastores/proxies we run as containers. osv ecosystem matching is
+  #     imperfect for the -alpine / docker.elastic.co images (Debian advisories are a
+  #     proxy) — kept unpinned + severity-gated. ---
+  - { name: postgresql,    ecosystem: Debian, tier: critical }
+  - { name: redis,         ecosystem: Debian, tier: critical }
+  - { name: elasticsearch, ecosystem: Debian, tier: standard }
+  - { name: "org.apache.kafka:kafka-clients", ecosystem: Maven, tier: standard }
 
-  # --- .NET ---
-  - name: Newtonsoft.Json
-    ecosystem: NuGet
-    tier: standard
+  # --- Debian-provisioned Swarm host OS (Ansible target). Distro unconfirmed;
+  #     Debian ecosystem is the closest proxy, severity-gated. ---
+  - { name: openssl, ecosystem: Debian, tier: critical }
+  - { name: openssh, ecosystem: Debian, tier: critical }
+  - { name: sudo,    ecosystem: Debian, tier: critical }
+  - { name: systemd, ecosystem: Debian, tier: critical }
+  - { name: Kernel,  ecosystem: Linux,  tier: critical }
 
-  # --- PHP ---
-  - name: laravel/framework
-    ecosystem: Packagist
-    tier: critical
-  - name: composer/composer
-    ecosystem: Packagist
-    tier: standard
+  # --- Coverage GAPS closed: real untrusted-input surfaces that were NOT watched.
+  #     ImageMagick/Ghostscript/GraphicsMagick/poppler are invoked on user uploads
+  #     via kt-paperclip and Docsplit; libvips via el-ciclo image processing. ---
+  - { name: imagemagick,    ecosystem: Debian, tier: critical }
+  - { name: ghostscript,    ecosystem: Debian, tier: critical }
+  - { name: graphicsmagick, ecosystem: Debian, tier: standard }
+  - { name: poppler,        ecosystem: Debian, tier: standard }
+  - { name: libvips,        ecosystem: Debian, tier: standard }
 
-  # --- Rust (extend from Cargo.lock) ---
-  - name: tokio
-    ecosystem: crates.io
-    tier: standard
-  - name: serde
-    ecosystem: crates.io
-    tier: standard
-
-  # --- Kafka (Java client) ---
-  - name: "org.apache.kafka:kafka-clients"
-    ecosystem: Maven
-    tier: critical
-
-  # --- GitHub Actions (add pins you use) ---
-  - name: actions/checkout
-    ecosystem: GitHub Actions
-    tier: standard
-  - name: actions/setup-node
-    ecosystem: GitHub Actions
-    tier: standard
-  - name: actions/cache
-    ecosystem: GitHub Actions
-    tier: standard
-
-  # --- GitLab Runner (distro package) ---
-  - name: gitlab-runner
-    ecosystem: Debian
-    tier: standard
-
-  # --- Containers / orchestration (Go upstreams) ---
-  - name: "github.com/moby/moby"
-    ecosystem: Go
-    tier: critical
-  - name: "github.com/docker/compose/v2"
-    ecosystem: Go
-    tier: critical
-  - name: "github.com/lima-vm/lima"
-    ecosystem: Go
-    tier: standard
-  - name: k8s.io/kubernetes
-    ecosystem: Go
-    tier: critical
-  - name: "github.com/minio/minio"
-    ecosystem: Go
-    tier: standard
-  - name: "github.com/prometheus/prometheus"
-    ecosystem: Go
-    tier: standard
-  - name: "github.com/grafana/grafana"
-    ecosystem: Go
-    tier: standard
-
-  - name: docker.io
-    ecosystem: Debian
-    tier: critical
-  - name: containerd
-    ecosystem: Debian
-    tier: critical
-  - name: runc
-    ecosystem: Debian
-    tier: critical
-  - name: podman
-    ecosystem: Debian
-    tier: standard
-
-  # --- Datastores & messaging (Debian) ---
-  - name: postgresql
-    ecosystem: Debian
-    tier: critical
-  - name: mariadb
-    ecosystem: Debian
-    tier: critical
-  - name: sqlite3
-    ecosystem: Debian
-    tier: standard
-  - name: mongodb
-    ecosystem: Debian
-    tier: standard
-  - name: redis
-    ecosystem: Debian
-    tier: critical
-  - name: memcached
-    ecosystem: Debian
-    tier: standard
-  - name: elasticsearch
-    ecosystem: Debian
-    tier: standard
-  - name: rabbitmq-server
-    ecosystem: Debian
-    tier: critical
-
-  # --- Proxies / web ---
-  - name: nginx
-    ecosystem: Debian
-    tier: critical
-  - name: apache2
-    ecosystem: Debian
-    tier: critical
-
-  # --- Observability (Debian helpers) ---
-  - name: prometheus
-    ecosystem: Debian
-    tier: standard
-
-  # --- Media ---
-  - name: ffmpeg
-    ecosystem: Debian
-    tier: standard
-
-  # --- OS / core distro ---
-  - name: Kernel
-    ecosystem: Linux
-    tier: critical
-  - name: openssl
-    ecosystem: Debian
-    tier: critical
-  - name: openssh
-    ecosystem: Debian
-    tier: critical
-  - name: git
-    ecosystem: Debian
-    tier: standard
-  - name: curl
-    ecosystem: Debian
-    tier: standard
-  - name: wget
-    ecosystem: Debian
-    tier: standard
-  - name: gnupg
-    ecosystem: Debian
-    tier: standard
-  - name: ca-certificates
-    ecosystem: Debian
-    tier: standard
-  - name: systemd
-    ecosystem: Debian
-    tier: critical
-  - name: sudo
-    ecosystem: Debian
-    tier: critical
