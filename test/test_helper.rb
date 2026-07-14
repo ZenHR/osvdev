@@ -19,12 +19,22 @@ def fixture_path(name)
   File.expand_path("fixtures/#{name}", __dir__)
 end
 
-def stub_vuln(id: 'CVE-STUB', summary: '', cvss_score: 'N/A', affected: 'unknown',
-              fixed: nil, url: nil, published: nil, withdrawn: nil)
+def stub_vuln(id: 'CVE-STUB', summary: '', cvss_score: 'N/A', severity_score: :auto,
+              affected: 'unknown', fixed: nil, url: nil, published: nil, withdrawn: nil,
+              aliases: [])
+  score = if severity_score == :auto
+            begin
+              Float(cvss_score)
+            rescue ArgumentError, TypeError
+              nil
+            end
+          else
+            severity_score
+          end
   StackWatch::Vuln.new(
-    id: id, summary: summary, cvss_score: cvss_score,
+    id: id, summary: summary, cvss_score: cvss_score, severity_score: score,
     affected: affected, fixed: fixed,
     url: url || "https://osv.dev/vulnerability/#{id}",
-    published: published, withdrawn: withdrawn
+    published: published, withdrawn: withdrawn, aliases: aliases
   )
 end

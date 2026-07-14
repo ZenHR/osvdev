@@ -176,4 +176,55 @@ class TestConfig < Minitest::Test
     YAML
     assert_raises(StackWatch::ConfigError) { StackWatch::Config.load(path: path, env: {}) }
   end
+
+  def test_package_version_is_parsed_and_optional
+    path = write_yml(<<~YAML)
+      packages:
+        - name: rails
+          ecosystem: RubyGems
+          version: 8.0.5
+        - name: nokogiri
+          ecosystem: RubyGems
+    YAML
+    cfg = StackWatch::Config.load(path: path, env: {})
+    assert_equal '8.0.5', cfg.packages[0].version
+    assert_nil cfg.packages[1].version
+  end
+
+  def test_cvss_thresholds_default
+    cfg = StackWatch::Config.load(path: write_yml(VALID_YML), env: {})
+    assert_in_delta 4.0, cfg.drop_below_cvss, 0.001
+    assert_in_delta 7.0, cfg.digest_below_cvss, 0.001
+  end
+
+  def test_cvss_thresholds_override
+    path = write_yml(<<~YAML)
+      filters:
+        drop_below_cvss: 2.5
+        digest_below_cvss: 8
+      packages: []
+    YAML
+    cfg = StackWatch::Config.load(path: path, env: {})
+    assert_in_delta 2.5, cfg.drop_below_cvss, 0.001
+    assert_in_delta 8.0, cfg.digest_below_cvss, 0.001
+  end
+
+  def test_drop_above_digest_raises
+    path = write_yml(<<~YAML)
+      filters:
+        drop_below_cvss: 8
+        digest_below_cvss: 5
+      packages: []
+    YAML
+    assert_raises(StackWatch::ConfigError) { StackWatch::Config.load(path: path, env: {}) }
+  end
+
+  def test_cvss_threshold_out_of_range_raises
+    path = write_yml(<<~YAML)
+      filters:
+        digest_below_cvss: 42
+      packages: []
+    YAML
+    assert_raises(StackWatch::ConfigError) { StackWatch::Config.load(path: path, env: {}) }
+  end
 end

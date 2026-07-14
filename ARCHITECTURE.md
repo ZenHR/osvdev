@@ -77,7 +77,7 @@ osvdev/
 │   ├── notifiers/
 │   │   └── test_slack.rb       # Slack notifier + WebMock stubs
 │   └── fixtures/
-│       ├── osv_querybatch_response.json
+│       ├── osv_vuln_record.json
 │       └── state_v1.json
 ├── examples/
 │   ├── stack.yml               # Sample configuration
@@ -226,7 +226,7 @@ osvdev/
 - `#fetch_all` → `{Package => [Vuln]}`
 
 **Design decisions:**
-- Single HTTP call via `/v1/querybatch` — queries all packages at once rather than N individual requests. The response array maintains positional correspondence with the query array.
+- Two-phase: one `/v1/querybatch` call returns id stubs for all packages at once (response array is positional with the query array); unseen ids are then enriched individually via `/v1/vulns/{id}` (`#fetch_vuln`), since querybatch omits severity/affected/fixed/published. Version pins are sent in the batch query for server-side filtering.
 - 15-second timeout — generous for a batch query; prevents infinite hangs.
 - Error wrapping: `Net::HTTP` exceptions and JSON parse errors are re-raised as `OSVError` with context, keeping the error hierarchy clean.
 - No retry logic — the tool runs on a schedule, so a transient failure is retried on next invocation.
@@ -564,16 +564,22 @@ end
 ### Current constraints
 
 - **No retry logic** — a single API timeout or 5xx fails the run. Acceptable because the tool runs on a schedule, but a 1-retry with exponential backoff would improve reliability.
-- **No version pinning in queries** — OSV is queried by package name + ecosystem only, not by installed version. This means StackWatch reports all CVEs for a package, not just those affecting your specific version. This is by design (monitoring your stack's exposure surface), but could be refined.
-- **Single querybatch call** — OSV's querybatch has an undocumented limit on query count. For very large package lists (100+), the response may be truncated. Chunking would address this.
+- **No retry logic** — a single API timeout or 5xx on the batch call fails the run (per-id enrichment failures are logged and skipped, and retried next run).
+- **Batch query size** — OSV's querybatch has an undocumented limit on query count. For very large package lists (100+), the response may be truncated. Chunking would address this.
 - **Slack-only notifications** — v1 only ships the Slack notifier. The architecture supports pluggable notifiers, but Discord, email, and generic webhook adapters are not yet implemented.
-- **No deduplication across ecosystems** — the same underlying vulnerability may have different IDs in different ecosystems (e.g., CVE vs GHSA vs PYSEC). Each is treated independently.
+- **CVSS v4** — the `Severity` scorer computes v3.0/3.1 base scores; v4 vectors fall back to the qualitative `database_specific.severity` label.
+
+### Resolved (v0.2)
+
+- **Version-aware queries** — an optional per-package `version:` is sent in the batch query so osv filters server-side to affecting vulns only.
+- **Two-phase enrichment** — querybatch returns only `{id, modified}`; severity/affected/fixed/published are fetched per unseen id from `/v1/vulns/{id}`. (Earlier versions read those off the querybatch stub and always got empty values.)
+- **Severity routing** — drop / digest / `@here`-with-patch by computed CVSS score, replacing static per-package `@here`.
+- **Cross-ecosystem dedup** — a vuln's `aliases` (CVE ↔ GHSA ↔ PYSEC) are tracked within a run so one upstream advisory posts once.
 
 ### Planned for future versions
 
 - Discord and generic webhook notifiers (v1.1)
 - RSS/GitHub Advisory Database as alternative sources (v1.1)
-- Version-aware queries (filter by installed version)
 - Configurable retry with backoff
 - Batch chunking for large package lists
 - Web dashboard for historical vulnerability timeline

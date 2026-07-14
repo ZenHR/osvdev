@@ -22,22 +22,21 @@ class TestSlack < Minitest::Test
     stub_request(:post, WEBHOOK_URL).to_return(status: status, body: 'ok')
   end
 
-  def notify(tier: 'standard', fixed: '4.2.1')
-    StackWatch::Notifiers::Slack.new(WEBHOOK_URL).notify(
-      package: pkg(tier: tier),
-      vuln: vuln(fixed: fixed)
+  def notify(tier: 'standard', fixed: '4.2.1', mention: false)
+    StackWatch::Notifiers::Slack.new(WEBHOOK_URL).post_alerts(
+      [{ package: pkg(tier: tier), vuln: vuln(fixed: fixed), mention: mention }]
     )
   end
 
-  def test_notify_standard_no_here_mention
+  def test_notify_without_mention_has_no_here
     stub_slack
-    notify(tier: 'standard')
+    notify(mention: false)
     assert_requested(:post, WEBHOOK_URL) { |req| !JSON.parse(req.body)['text'].include?('<!here>') }
   end
 
-  def test_notify_critical_includes_here_mention
+  def test_notify_with_mention_includes_here
     stub_slack
-    notify(tier: 'critical')
+    notify(mention: true)
     assert_requested(:post, WEBHOOK_URL) { |req| JSON.parse(req.body)['text'].include?('<!here>') }
   end
 
@@ -58,6 +57,31 @@ class TestSlack < Minitest::Test
     stub_slack
     notify(fixed: nil)
     assert_requested(:post, WEBHOOK_URL) { |req| JSON.parse(req.body)['text'].include?('no patch') }
+  end
+
+  def test_empty_alerts_posts_nothing
+    stub_slack
+    StackWatch::Notifiers::Slack.new(WEBHOOK_URL).post_alerts([])
+    assert_not_requested(:post, WEBHOOK_URL)
+  end
+
+  def test_batches_at_most_ten_per_message
+    stub_slack
+    items = Array.new(23) do |i|
+      { package: pkg, vuln: vuln.tap { |v| v.id = "CVE-#{i}" }, mention: false }
+    end
+    StackWatch::Notifiers::Slack.new(WEBHOOK_URL).post_alerts(items)
+    assert_requested(:post, WEBHOOK_URL, times: 3) # 10 + 10 + 3
+  end
+
+  def test_here_applied_once_when_any_item_warrants_it
+    stub_slack
+    items = [
+      { package: pkg, vuln: vuln, mention: false },
+      { package: pkg, vuln: vuln, mention: true }
+    ]
+    StackWatch::Notifiers::Slack.new(WEBHOOK_URL).post_alerts(items)
+    assert_requested(:post, WEBHOOK_URL) { |req| JSON.parse(req.body)['text'].scan('<!here>').size == 1 }
   end
 
   def test_http_error_raises_slack_error

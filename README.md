@@ -92,22 +92,33 @@ notifications:
 filters:
   max_age_days: 30              # ignore CVEs older than 30 days (default).
                                 # Set `false` to disable the age filter.
+  drop_below_cvss: 4.0          # CVSS below this is dropped (default 4.0)
+  digest_below_cvss: 7.0        # 4.0..<7.0 -> weekly digest, no @here (default 7.0)
 
 packages:
-  - name: django
-    ecosystem: PyPI
-    tier: critical    # critical | standard
+  - name: rails
+    ecosystem: RubyGems
+    version: 8.0.5    # optional: osv filters server-side to vulns affecting this version
+    tier: critical    # informational label (see below)
   - name: next
     ecosystem: npm
     tier: standard
 ```
 
-**Tiers:**
-- `critical` — posts with `@here` mention
-- `standard` — silent post, no mention
+**Routing (severity-based, not tier-based):** alerts are routed by the CVE's CVSS
+base score, which StackWatch computes from the enriched osv record:
+- `CVSS < drop_below_cvss` — dropped.
+- `drop_below_cvss <= CVSS < digest_below_cvss` — batched into a single **digest** message, no mention.
+- `CVSS >= digest_below_cvss` — individual channel post; **`@here` only when a patch is available** (high severity you can't act on is a silent post, not a page).
+- Unknown severity — digested, never `@here`.
+
+`tier` is now an informational label only; it no longer controls `@here`.
 
 **Filters:**
-- `max_age_days` — drop vulnerabilities published more than N days ago. Defaults to `30`. Set to `false` to report every historical CVE OSV has ever seen for your packages (noisy). Withdrawn vulnerabilities are always skipped.
+- `max_age_days` — drop vulnerabilities published more than N days ago. Defaults to `30`. Set to `false` to report every historical CVE (noisy). Withdrawn vulnerabilities are always skipped.
+- **Retroactive CVE backfills** are auto-digested (never paged): when a CVE id's year is 2+ years older than its publication date — e.g. `CVE-2022-48xxx` first published in 2026, as the Linux kernel project has been doing en masse — the fix is old news, not a new issue. These route to the quiet digest and, once seen, don't recur.
+- `drop_below_cvss` / `digest_below_cvss` — the CVSS routing thresholds above (0–10).
+- `version` (per package) — when set, osv.dev filters server-side to vulns that actually affect that version. The biggest noise reducer; up-to-date pins go silent.
 
 **Supported ecosystems:** any ecosystem supported by [osv.dev](https://osv.dev) — PyPI, npm, RubyGems, Go, Maven, Debian, Alpine, NuGet, Hex, crates.io, and more.
 
@@ -116,12 +127,17 @@ packages:
 ## Alert format
 
 ```
-@here :rotating_light: New CVE for django (PyPI)
-CVE-2024-27351 — CVSS 7.5
-Potential regular expression denial of service vulnerability in Django
-Affected: >=3.2.0   Patched: 3.2.25
+@here :rotating_light: CVE for rails (RubyGems) — CVSS 9.8
+CVE-2024-27351 (GHSA-qrr7-9963-x827)
+Potential SQL injection in the query builder
+Affected: >=3.2.0   Patched in 3.2.25 — upgrade
 View on osv.dev
 ```
+
+`@here` appears only for CVSS ≥ `digest_below_cvss` **with** a patch available.
+The advisory is labelled by its real id prefix (CVE / GHSA / PYSEC), and any aliases
+are shown in parentheses. Lower-severity findings are grouped into a single digest
+message instead.
 
 ---
 
@@ -154,11 +170,12 @@ StackWatch persists seen CVE IDs to `state.json` so it only alerts on new findin
 ## Architecture
 
 ```
-stack.yml → Config → OSV querybatch → diff → Slack notify → state.json
+stack.yml → Config → OSV querybatch (id stubs) → diff vs state
+          → enrich unseen ids (/v1/vulns/{id}) → severity route → Slack → state.json
 ```
 
 - **No database.** State is a JSON file.
-- **One HTTP round-trip** to osv.dev for all packages (uses `/v1/querybatch`).
+- **Two-phase osv fetch:** one cheap `/v1/querybatch` call returns id stubs; only *unseen* ids are enriched via `/v1/vulns/{id}` (that's where CVSS / affected / patch actually live — querybatch omits them). Version pins are applied in the batch query so osv filters server-side.
 - **Pluggable notifiers** — v1 ships Slack. Discord/webhook coming in v1.1.
 - **Pluggable sources** — v1 ships osv.dev. RSS feeds and GitHub Advisory DB coming in v1.1.
 

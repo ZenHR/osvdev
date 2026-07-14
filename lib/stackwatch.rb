@@ -1,6 +1,7 @@
 require 'json'
 require 'net/http'
 require 'psych'
+require 'set'
 require 'time'
 
 module StackWatch
@@ -16,11 +17,17 @@ module StackWatch
     class SlackError < StandardError; end
   end
 
-  autoload :Config,  'stackwatch/config'
-  autoload :State,   'stackwatch/state'
-  autoload :Vuln,    'stackwatch/vuln'
-  autoload :Runner,  'stackwatch/runner'
-  autoload :CLI,     'stackwatch/cli'
+  # Lightweight result of a querybatch call. osv.dev's /v1/querybatch returns only
+  # { id, modified } per vuln — no severity/affected/fixed/published. The full record
+  # is fetched on demand (Sources::OSV#fetch_vuln) only for unseen ids.
+  Stub = Struct.new(:id, :modified, keyword_init: true)
+
+  autoload :Config,   'stackwatch/config'
+  autoload :State,    'stackwatch/state'
+  autoload :Vuln,     'stackwatch/vuln'
+  autoload :Severity, 'stackwatch/severity'
+  autoload :Runner,   'stackwatch/runner'
+  autoload :CLI,      'stackwatch/cli'
 
   module Sources
     autoload :OSV, 'stackwatch/sources/osv'

@@ -1,0 +1,24 @@
+{
+  "id": "CVE-2024-27351",
+  "summary": "Potential regular expression denial of service vulnerability in Django",
+  "aliases": ["GHSA-qrr7-9963-x827"],
+  "published": "2026-03-04T18:15:00Z",
+  "modified": "2026-03-06T00:00:00Z",
+  "severity": [
+    { "type": "CVSS_V3", "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H" }
+  ],
+  "database_specific": { "severity": "HIGH" },
+  "affected": [
+    {
+      "ranges": [
+        {
+          "type": "ECOSYSTEM",
+          "events": [
+            { "introduced": "3.2.0" },
+            { "fixed": "3.2.25" }
+          ]
+        }
+      ]
+    }
+  ]
+}
