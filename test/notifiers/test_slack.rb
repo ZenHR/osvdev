@@ -74,6 +74,15 @@ class TestSlack < Minitest::Test
     assert_requested(:post, WEBHOOK_URL, times: 3) # 10 + 10 + 3
   end
 
+  def test_caps_at_five_messages_and_notes_overflow
+    stub_slack
+    items = Array.new(63) { |i| { package: pkg, vuln: vuln.tap { |v| v.id = "CVE-#{i}" }, mention: false } }
+    StackWatch::Notifiers::Slack.new(WEBHOOK_URL).post_alerts(items)
+    assert_requested(:post, WEBHOOK_URL, times: 5) # 63 -> 5 messages, not 7
+    # 5 batches * 10 = 50 sent, 13 suppressed, noted on the last message
+    assert_requested(:post, WEBHOOK_URL) { |req| JSON.parse(req.body)['text'].include?('+13 more') }
+  end
+
   def test_here_applied_once_when_any_item_warrants_it
     stub_slack
     items = [
